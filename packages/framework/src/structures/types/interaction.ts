@@ -10,7 +10,7 @@ import type {
 type InteractionResponseCallback<T, D = void> =
 	D extends object
 	? { type: T; data: D }
-	: { type: T };
+	: { type: T; data: never };
 
 export type PongCallback
 	= InteractionResponseCallback<

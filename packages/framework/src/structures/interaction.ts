@@ -1,7 +1,9 @@
 import {
 	InteractionTypes, MessageComponentTypes,
 	INTERACTION_ID_TOKEN,
-	ApplicationCommandTypes
+	ApplicationCommandTypes,
+	WEBHOOK_MESSAGE,
+	WEBHOOK
 } from '@biscuitland/api-types';
 import type {
 	DiscordInteraction,
@@ -19,6 +21,14 @@ import type {
 	ModalCallback, UpdateMessageCallback
 } from './types/interaction';
 import type { OptionsContext } from '../utils';
+import type { CreateMessageData } from './types/message';
+
+type InteractionCallback = ChannelMessageWithSourceCallback |
+	DeferredChannelMessageWithSourceCallback |
+	DeferredUpdateMessageCallback |
+	UpdateMessageCallback |
+	ApplicationCommandAutocompleteResultCallback |
+	ModalCallback;
 
 type ResolveDiscordInteractionRaw<
 	O extends keyof DiscordInteractionData = never,
@@ -28,12 +38,16 @@ type ResolveDiscordInteractionRaw<
 };
 
 type ResolveInteraction<
+	RESPOND extends InteractionCallback,
 	O extends keyof DiscordInteractionData = never,
 	R extends keyof DiscordInteractionData = never,
-	RESPOND = never
 > = Omit<Interaction<RESPOND>, 'data'> & { data: ResolveDiscordInteractionRaw<O, R> };
 
 export type ApplicationCommandInteraction = ResolveInteraction<
+	ChannelMessageWithSourceCallback
+	| DeferredChannelMessageWithSourceCallback
+	| ApplicationCommandAutocompleteResultCallback
+	| ModalCallback,
 	// 'id'
 	// | 'name'
 	// | 'type'
@@ -45,14 +59,11 @@ export type ApplicationCommandInteraction = ResolveInteraction<
 	| 'components'
 	| 'custom_id'
 	| 'values',
-	never,
-	ChannelMessageWithSourceCallback
-	| DeferredChannelMessageWithSourceCallback
-	| ApplicationCommandAutocompleteResultCallback
-	| ModalCallback
+	never
 > & { options: OptionsContext };
 
 export type AutocompleteInteraction = ResolveInteraction<
+	ApplicationCommandAutocompleteResultCallback,
 	// 'id'
 	// | 'name'
 	// | 'type'
@@ -64,11 +75,14 @@ export type AutocompleteInteraction = ResolveInteraction<
 	| 'components'
 	| 'custom_id'
 	| 'values',
-	never,
-	ApplicationCommandAutocompleteResultCallback
+	never
 > & { options: OptionsContext };
 
 export type ContextMenuUserInteraction = ResolveInteraction<
+	ChannelMessageWithSourceCallback
+	| DeferredChannelMessageWithSourceCallback
+	| ApplicationCommandAutocompleteResultCallback
+	| ModalCallback,
 	// 'id'
 	// | 'name'
 	// | 'type'
@@ -80,14 +94,14 @@ export type ContextMenuUserInteraction = ResolveInteraction<
 	| 'components'
 	| 'custom_id'
 	| 'values',
-	'target_id',
-	ChannelMessageWithSourceCallback
-	| DeferredChannelMessageWithSourceCallback
-	| ApplicationCommandAutocompleteResultCallback
-	| ModalCallback
+	'target_id'
 > & { target: { user: DiscordUser; member?: DiscordMember } };
 
 export type ContextMenuMessageInteraction = ResolveInteraction<
+	ChannelMessageWithSourceCallback
+	| DeferredChannelMessageWithSourceCallback
+	| ApplicationCommandAutocompleteResultCallback
+	| ModalCallback,
 	// 'id'
 	// | 'name'
 	// | 'type'
@@ -99,14 +113,16 @@ export type ContextMenuMessageInteraction = ResolveInteraction<
 	| 'components'
 	| 'custom_id'
 	| 'values',
-	'target_id',
-	ChannelMessageWithSourceCallback
-	| DeferredChannelMessageWithSourceCallback
-	| ApplicationCommandAutocompleteResultCallback
-	| ModalCallback
+	'target_id'
 > & { target: { message: DiscordMessage } };
 
 export type SelectMenuInteraction = ResolveInteraction<
+	ChannelMessageWithSourceCallback
+	| DeferredChannelMessageWithSourceCallback
+	| DeferredUpdateMessageCallback
+	| ApplicationCommandAutocompleteResultCallback
+	| ModalCallback
+	| UpdateMessageCallback,
 	'id'
 	| 'name'
 	| 'type'
@@ -121,16 +137,16 @@ export type SelectMenuInteraction = ResolveInteraction<
 	,
 	'custom_id'
 	| 'component_type'
-	| 'values',
-	ChannelMessageWithSourceCallback
-	| DeferredChannelMessageWithSourceCallback
-	| DeferredUpdateMessageCallback
-	| ApplicationCommandAutocompleteResultCallback
-	| ModalCallback
-	| UpdateMessageCallback
+	| 'values'
 >;
 
 export type ComponentInteraction = ResolveInteraction<
+	ChannelMessageWithSourceCallback
+	| DeferredChannelMessageWithSourceCallback
+	| DeferredUpdateMessageCallback
+	| ApplicationCommandAutocompleteResultCallback
+	| ModalCallback
+	| UpdateMessageCallback,
 	'id'
 	| 'name'
 	| 'type'
@@ -144,17 +160,12 @@ export type ComponentInteraction = ResolveInteraction<
 	| 'values'
 	,
 	'custom_id'
-	| 'component_type',
-	// | 'values'
-	ChannelMessageWithSourceCallback
-	| DeferredChannelMessageWithSourceCallback
-	| DeferredUpdateMessageCallback
-	| ApplicationCommandAutocompleteResultCallback
-	| ModalCallback
-	| UpdateMessageCallback
+	| 'component_type'
+// | 'values'
 >;
 
 export type ModalSubmitInteraction = ResolveInteraction<
+	ModalCallback,
 	'id'
 	| 'name'
 	| 'type'
@@ -168,17 +179,11 @@ export type ModalSubmitInteraction = ResolveInteraction<
 	| 'values'
 	,
 	'custom_id'
-	| 'components',
-	ModalCallback
+	| 'components'
 >;
 
 export class Interaction<
-	T = ChannelMessageWithSourceCallback |
-	DeferredChannelMessageWithSourceCallback |
-	DeferredUpdateMessageCallback |
-	UpdateMessageCallback |
-	ApplicationCommandAutocompleteResultCallback |
-	ModalCallback
+	T extends InteractionCallback
 > {
 	data: DiscordInteraction;
 	client: Potocuit;
@@ -260,6 +265,49 @@ export class Interaction<
 				file,
 				...body
 			}
+		);
+	}
+
+	editReply(body: T['data'], file?: { blob: Blob; name: string }[]) {
+		return this.editFollowUp({ ...body, messageId: '@original' }, file);
+		// return this.client.rest.patch(
+		// 	WEBHOOK_MESSAGE(this.data.application_id, this.data.token, '@original'),
+		// 	{
+		// 		file,
+		// 		...body
+		// 	}
+		// );
+	}
+
+	sendFollowUp(data: CreateMessageData, file?: { blob: Blob; name: string }[]): Promise<DiscordMessage> {
+		return this.client.rest.post(
+			WEBHOOK(this.data.application_id, this.data.token),
+			{
+				file,
+				...data
+			}
+		);
+	}
+
+	getFollowUp(messageId: string, threadId?: string): Promise<DiscordMessage> {
+		return this.client.rest.get(
+			WEBHOOK_MESSAGE(this.data.application_id, this.data.token, messageId, { threadId })
+		);
+	}
+
+	editFollowUp(data: CreateMessageData & { messageId: string }, file?: { blob: Blob; name: string }[]): Promise<DiscordMessage> {
+		return this.client.rest.patch(
+			WEBHOOK_MESSAGE(this.data.application_id, this.data.token, data.messageId),
+			{
+				file,
+				...data
+			}
+		);
+	}
+
+	deleteFollowUp(messageId: string, threadId?: string) {
+		return this.client.rest.delete(
+			WEBHOOK_MESSAGE(this.data.application_id, this.data.token, messageId, { threadId })
 		);
 	}
 }

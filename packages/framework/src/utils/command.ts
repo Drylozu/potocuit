@@ -67,7 +67,7 @@ class BaseCommand {
 		return;
 	}
 
-	onError(_interaction: Interaction, _error: unknown): any {
+	onError(_interaction: Interaction<any>, _error: unknown): any {
 		return;
 	}
 }

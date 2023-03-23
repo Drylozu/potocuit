@@ -46,7 +46,7 @@ export class Potocuit {
 	public readonly commands = new Map<string, Map<string, Command | ContextMenu>>();
 	public events = {
 		raw: (_shard: Shard, _payload: DiscordGatewayPayload): any => { return; },
-		interactionCreate: (_data: Interaction): any => { return; },
+		interactionCreate: (_data: Interaction<any>): any => { return; },
 		ready: (_shards: [number, number]): any => { return; },
 		listenerError: (_event: string, _error: unknown): any => { return; }
 	};
